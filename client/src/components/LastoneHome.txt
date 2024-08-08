@@ -1,0 +1,359 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Header from './Header';
+import './Header.css'; // Make sure to create this CSS file
+import hero from '../images/hero-banner2.png';
+import { Link } from 'react-router-dom';
+import nifty from '../images/nifty.jpg';
+import sensex from '../images/sensex.jpg';
+import niftybank from '../images/NiftyBank.jpg';
+import niftyit from '../images/NiftyIt.jpg';
+import sp from '../images/spx.jpeg';
+import nasdaq from '../images/nasdaq.jpg';
+import dow from '../images/dow.jpg'
+// import sp from '../images/spx.jpeg'
+// import sp from '../images/spx.jpeg'
+// import sp from '../images/spx.jpeg'
+// import sp from '../images/spx.jpeg'
+
+// Replace with your actual API key
+const API_KEY = 'XJG9UKO7ESS0IJ2S';
+
+const indices = {
+  'India': [
+    { name: 'Nifty 50', symbol: 'NSE:NIFTY', image:nifty },
+    { name: 'Sensex (BSE 30)', symbol: 'BSE:SENSEX', image:sensex},
+    { name: 'Nifty Bank', symbol: 'NSE:NIFTYBANK', image:niftybank },
+    { name: 'Nifty IT', symbol: 'NSE:NIFTYIT', image:niftyit }
+  ],
+  'USA': [
+    { name: 'S&P 500', symbol: 'SPY', image:sp  },
+    { name: 'NASDAQ Composite', symbol: 'IXIC', image:nasdaq  },
+    { name: 'Dow Jones Industrial Average', symbol: 'DJI', image:dow  },
+  ],
+  'China': [
+    { name: 'Shanghai Composite Index', symbol: 'SSEC', image:nifty  },
+    { name: 'Hang Seng Index', symbol: 'HSI', image:nifty  },
+    { name: 'Shenzhen Composite Index', symbol: 'SZCOMP', image:nifty  }
+  ],
+  'Japan': [
+    { name: 'Nikkei 225', symbol: 'N225', image:nifty  },
+    { name: 'Topix Index', symbol: 'TOPIX', image:nifty  },
+    { name: 'JASDAQ Index', symbol: 'JASDAQ', image:nifty  },
+    { name: 'Nikkei 400', symbol: 'NIKKEI400', image:nifty  }
+  ]
+};
+
+
+const fetchData = async (symbol) => {
+  try {
+    const response = await axios.get('https://www.alphavantage.co/query', {
+      params: {
+        function: 'TIME_SERIES_DAILY',
+        symbol: symbol,
+        apikey: API_KEY
+      }
+    });
+    console.log(`Data for ${symbol}:`, response.data); // Log the full response data
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching data for ${symbol}:`, error);
+    return null;
+  }
+};
+
+const calculateChanges = (data) => {
+  if (!data || !data['Time Series (Daily)']) {
+    console.warn('Invalid data or missing "Time Series (Daily)" section:', data);
+    return {
+      todayPrice: null,
+      priceChange: null,
+      percentChange: null
+    };
+  }
+
+  const timeSeries = data['Time Series (Daily)'];
+  const dates = Object.keys(timeSeries);
+
+  if (dates.length < 2) {
+    console.warn('Not enough data:', dates);
+    return {
+      todayPrice: null,
+      priceChange: null,
+      percentChange: null
+    };
+  }
+
+  const today = dates[0];
+  const yesterday = dates[1];
+
+  const todayPrice = parseFloat(timeSeries[today]['4. close']);
+  const yesterdayPrice = parseFloat(timeSeries[yesterday]['4. close']);
+  
+  if (isNaN(todayPrice) || isNaN(yesterdayPrice)) {
+    console.warn('Invalid price data:', todayPrice, yesterdayPrice);
+    return {
+      todayPrice: null,
+      priceChange: null,
+      percentChange: null
+    };
+  }
+
+  const priceChange = todayPrice - yesterdayPrice;
+  const percentChange = (priceChange / yesterdayPrice) * 100;
+
+  return {
+    todayPrice,
+    priceChange,
+    percentChange: percentChange.toFixed(2)
+  };
+};
+
+const Home = () => {
+  const [activeTab, setActiveTab] = useState('India');
+  const [indicesData, setIndicesData] = useState([]);
+
+  useEffect(() => {
+    const fetchIndicesData = async () => {
+      const indicesList = indices[activeTab];
+      const data = await Promise.all(indicesList.map(async (index) => {
+        const result = await fetchData(index.symbol);
+        if (result && result['Time Series (Daily)']) {
+          console.log(`Processing data for ${index.symbol}:`, result);
+        } else {
+          console.warn(`No 'Time Series (Daily)' data for ${index.symbol}`);
+        }
+        const changes = result ? calculateChanges(result) : null;
+        return {
+          ...index,
+          ...changes
+        };
+      }));
+      console.log(data); // Log the data
+      setIndicesData(data);
+    };
+
+    fetchIndicesData();
+  }, [activeTab]);
+
+  return (
+    <>
+      <Header />
+      <section className="section hero" aria-label="hero" data-section>
+        <div className="container">
+          <div className="hero-content">
+            <h1 className="h1 hero-title">Predict & Analyze Stock Trends with MarketSage</h1>
+            <p className="hero-text">
+              MarketSage leverages advanced machine learning algorithms to provide accurate stock market predictions and insights.
+            </p>
+            <button className="btn btn-primary">Get started now</button>
+          </div>
+          <figure className="hero-banner">
+            <img src={hero} width="500" height="408" alt="hero banner" className="w-100" />
+          </figure>
+        </div>
+      </section>
+
+      <section className="section trend" aria-label="crypto trend" data-section>
+        <div className="container">
+          <div className="trend-tab">
+            <ul className="tab-nav">
+              {Object.keys(indices).map((country) => (
+                <li key={country}>
+                  <button
+                    className={`tab-btn ${activeTab === country ? 'active' : ''}`}
+                    onClick={() => setActiveTab(country)}
+                  >
+                    {country}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <ul className="tab-content">
+              {indicesData.length > 0 ? (
+                indicesData.map((indexData, idx) => (
+                  <li key={idx}>
+                    <div className="trend-card">
+                      <div className="card-title-wrapper">
+                        <img src={indexData.image} width="24" height="24" alt={`${indexData.name} logo`} />
+                        <a href="/" className="card-title">
+                          {indexData.name} <span className="span">{indexData.symbol}</span>
+                        </a>
+                      </div>
+                      <data className="card-value" value={indexData.todayPrice}>
+                        USD {indexData.todayPrice !== null ? indexData.todayPrice.toFixed(2) : 'N/A'}
+                      </data>
+                      <div className="card-analytics">
+                        <data className="current-price" value={indexData.todayPrice}>
+                          {indexData.todayPrice !== null ? indexData.todayPrice.toFixed(2) : 'N/A'}
+                        </data>
+                        <div className={`badge ${indexData.percentChange >= 0 ? 'green' : 'red'}`}>
+                          {indexData.percentChange !== null ? `${indexData.percentChange}%` : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li>No data available</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="section market" aria-label="market update" data-section>
+        <div className="container">
+          <div className="title-wrapper">
+            <h2 className="h2 section-title">Market Update</h2>
+            {/* <Link to="/" className="btn-link">See All</Link> */}
+            <a href="/" className="btn-linking">See All</a>
+          </div>
+
+          <div className="market-tab">
+            {/* <ul className="tab-nav">
+              {['View All', 'Metaverse', 'Entertainment', 'Energy', 'NFT', 'Gaming', 'Music'].map((tab, index) => (
+                <li key={index}>
+                  <button className={`tab-btn ${index === 0 ? 'active' : ''}`}>{tab}</button>
+                </li>
+              ))}
+            </ul> */}
+
+            <table className="market-table">
+              <thead className="table-head">
+                <tr className="table-row table-title table-title-border">
+                  {['', '#', 'Name', 'Last Price', '24h %', 'Market Cap', 'Last 7 Days', ''].map((heading, index) => (
+                    <th key={index} className="table-heading" scope="col">{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+
+
+              <tbody className="table-body">
+                {[
+                  {
+                    rank: 1,
+                    name: 'Bitcoin',
+                    symbol: 'BTC',
+                    logo: {nifty},
+                    lastPrice: '$56,623.54',
+                    change: '+1.45%',
+                    changeClass: 'green',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-1.svg',
+                  },
+                  {
+                    rank: 2,
+                    name: 'Ethereum',
+                    symbol: 'ETH',
+                    logo: './assets/images/coin-2.svg',
+                    lastPrice: '$56,623.54',
+                    change: '-5.12%',
+                    changeClass: 'red',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-2.svg',
+                  },
+                  {
+                    rank: 3,
+                    name: 'Tether',
+                    symbol: 'USDT/USD',
+                    logo: './assets/images/coin-3.svg',
+                    lastPrice: '$56,623.54',
+                    change: '+1.45%',
+                    changeClass: 'green',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-1.svg',
+                  },
+                  {
+                    rank: 4,
+                    name: 'BNB',
+                    symbol: 'BNB/USD',
+                    logo: './assets/images/coin-4.svg',
+                    lastPrice: '$56,623.54',
+                    change: '-3.75%',
+                    changeClass: 'red',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-2.svg',
+                  },
+                  {
+                    rank: 5,
+                    name: 'Solana',
+                    symbol: 'SOL',
+                    logo: './assets/images/coin-5.svg',
+                    lastPrice: '$56,623.54',
+                    change: '+1.45%',
+                    changeClass: 'green',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-1.svg',
+                  },
+                  {
+                    rank: 6,
+                    name: 'XRP',
+                    symbol: 'XRP',
+                    logo: './assets/images/coin-6.svg',
+                    lastPrice: '$56,623.54',
+                    change: '-2.22%',
+                    changeClass: 'red',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-2.svg',
+                  },
+                  {
+                    rank: 7,
+                    name: 'Cardano',
+                    symbol: 'ADA',
+                    logo: './assets/images/coin-7.svg',
+                    lastPrice: '$56,623.54',
+                    change: '+0.8%',
+                    changeClass: 'green',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-1.svg',
+                  },
+                  {
+                    rank: 8,
+                    name: 'Avalanche',
+                    symbol: 'AVAX',
+                    logo: './assets/images/coin-8.svg',
+                    lastPrice: '$56,623.54',
+                    change: '+1.41%',
+                    changeClass: 'green',
+                    marketCap: '$880,423,640,582',
+                    chart: './assets/images/chart-1.svg',
+                  },
+                ].map((coin, index) => (
+                  <tr className="table-row" key={index}>
+                    <td className="table-data">
+                      <button className="add-to-fav" aria-label="Add to favourite" data-add-to-fav>
+                        <i className="icon ion-icon ion-star-outline" aria-hidden="true"></i>
+                        <i className="icon ion-icon ion-star" aria-hidden="true"></i>
+                      </button>
+                    </td>
+                    <th className="table-data rank" scope="row">{coin.rank}</th>
+                    <td className="table-data">
+                      <div className="wrapper">
+                        <img src={coin.logo} width="20" height="20" alt={`${coin.name} logo`} className="img" />
+                        <h3>
+                          <Link to="/" className="coin-name">{coin.name} <span className="span">{coin.symbol}</span></Link>
+                        </h3>
+                      </div>
+                    </td>
+                    <td className="table-data last-price">{coin.lastPrice}</td>
+                    <td className={`table-data last-update ${coin.changeClass}`}>{coin.change}</td>
+                    <td className="table-data market-cap">{coin.marketCap}</td>
+                    <td className="table-data">
+                      <img src={coin.chart} width="100" height="40" alt="chart" className="chart" />
+                    </td>
+                    <td className="table-data">
+                      <button className="btn btn-outline">Analysis</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export default Home;
