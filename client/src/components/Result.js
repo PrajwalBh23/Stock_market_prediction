@@ -40,7 +40,7 @@ export default function Result() {
           }
         };
 
-        const response = await axios.get(`http://localhost:5000/predict`, config);
+        const response = await axios.get(`https://stock-market-prediction-odrt.onrender.com/predict`, config);
         console.log(response);
       } catch (error) {
         console.error('Error fetching room data from backend:', error);
